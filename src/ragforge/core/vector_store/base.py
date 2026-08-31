@@ -92,7 +92,7 @@ class VectorStore(ABC):
         """Fuse vector and text results with reciprocal rank fusion."""
         vector_hits = await self.search(embedding, top_k, filters)
         text_hits = await self.search_text(text, top_k, filters)
-        return rrf_fuse(vector_hits, text_hits, self._rrf_k)
+        return rrf_fuse([vector_hits, text_hits], self._rrf_k)
 
     @abstractmethod
     async def delete(self, doc_id: str) -> None:
@@ -106,19 +106,21 @@ class VectorStore(ABC):
 
 
 def rrf_fuse(
-    vector_hits: Sequence[SearchHit],
-    text_hits: Sequence[SearchHit],
-    k: int,
+    hit_lists: Sequence[Sequence[SearchHit]],
+    k: int = 60,
 ) -> list[SearchHit]:
-    """Reciprocal rank fusion: score = sum over lists of 1 / (k + rank)."""
+    """Reciprocal rank fusion over multiple hit lists.
+
+    ``score(chunk) = sum over lists of 1 / (k + rank_in_list)``. Chunks are
+    deduplicated by ``chunk_id`` (each appears once, with the accumulated
+    score), so a chunk ranked highly in several lists ends up on top.
+    """
     scores: dict[str, float] = {}
     chunks: dict[str, Chunk | None] = {}
-    for rank, hit in enumerate(vector_hits):
-        scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + 1.0 / (k + rank + 1)
-        chunks.setdefault(hit.chunk_id, hit.chunk)
-    for rank, hit in enumerate(text_hits):
-        scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + 1.0 / (k + rank + 1)
-        chunks.setdefault(hit.chunk_id, hit.chunk)
+    for hits in hit_lists:
+        for rank, hit in enumerate(hits):
+            scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + 1.0 / (k + rank + 1)
+            chunks.setdefault(hit.chunk_id, hit.chunk)
     ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)
     return [
         SearchHit(chunk_id=chunk_id, score=score, chunk=chunks[chunk_id])

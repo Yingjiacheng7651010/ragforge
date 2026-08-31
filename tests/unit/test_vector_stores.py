@@ -50,7 +50,7 @@ def test_rrf_fuse_ranks_present_in_both_lists_first() -> None:
     vector_hits = [SearchHit(chunk_id="c1", score=0.9), SearchHit(chunk_id="c2", score=0.8)]
     text_hits = [SearchHit(chunk_id="c2", score=9.0), SearchHit(chunk_id="c3", score=8.0)]
 
-    fused = rrf_fuse(vector_hits, text_hits, k=60)
+    fused = rrf_fuse([vector_hits, text_hits], k=60)
 
     assert [hit.chunk_id for hit in fused] == ["c2", "c1", "c3"]
 

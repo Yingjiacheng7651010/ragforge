@@ -5,6 +5,8 @@ from collections.abc import AsyncIterator, Sequence
 
 from ragforge.core.embeddings import EmbeddingCache, EmbeddingProvider
 from ragforge.core.llm import BaseLLM, LLMResult, Message
+from ragforge.core.vector_store import Filter, SearchHit
+from ragforge.retrieval import Retriever
 
 
 class FakeLLM(BaseLLM):
@@ -69,3 +71,20 @@ class FakeEmbedding(EmbeddingProvider):
     async def _embed_raw(self, texts: list[str]) -> list[list[float]]:
         self.batches.append(texts)
         return [[0.1, 0.2, 0.3] for _ in texts]
+
+
+class FakeRetriever(Retriever):
+    """Scripted retriever: returns preset hits and records every call."""
+
+    def __init__(self, hits: list[SearchHit] | None = None) -> None:
+        self._hits = hits or []
+        self.calls: list[tuple[str, int, Filter | None]] = []
+
+    async def retrieve(
+        self,
+        query: str,
+        top_k: int,
+        filters: Filter | None = None,
+    ) -> list[SearchHit]:
+        self.calls.append((query, top_k, filters))
+        return list(self._hits)
