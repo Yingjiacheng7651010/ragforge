@@ -47,3 +47,4 @@ python_version = "3.11"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-ra"
+pythonpath = ["."]
