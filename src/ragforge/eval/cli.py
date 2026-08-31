@@ -4,7 +4,6 @@ import argparse
 import asyncio
 import json
 import os
-import sys
 from pathlib import Path
 
 from ragforge.config import get_settings
@@ -115,6 +114,8 @@ def build_retriever(name: str, index: str) -> Retriever:
             "offline needs no retriever; use --retriever dense/sparse/hybrid",
             code="E_EVAL_RETRIEVER",
         )
+    if name not in ("dense", "sparse", "hybrid", "milvus"):
+        raise RAGForgeError(f"unknown retriever {name!r}", code="E_EVAL_RETRIEVER")
     embedder = _require_embedder()
 
     def es_store() -> ElasticsearchStore:
@@ -142,7 +143,7 @@ def build_retriever(name: str, index: str) -> Retriever:
             embedder=embedder,
         )
         return DenseRetriever(store=store, embedder=embedder)
-    raise RAGForgeError(f"unknown retriever {name!r}", code="E_EVAL_RETRIEVER")
+    raise AssertionError("unreachable")
 
 
 def run(args: argparse.Namespace) -> int:
@@ -196,7 +197,4 @@ def run(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_arg_parser().parse_args(argv)
-    if args.command == "run":
-        return run(args)
-    print(f"unknown command: {args.command}", file=sys.stderr)
-    return 2
+    return run(args)

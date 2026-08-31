@@ -206,6 +206,25 @@ def test_chat_stream_emits_tokens_and_answer() -> None:
     assert events[-1] == "data: [DONE]"
 
 
+async def test_chat_stream_serves_cached_answer() -> None:
+    services, llms = make_services(stream_chunks=["should not be used"])
+    await services.cache.set(
+        "q",
+        "缓存答案 [1]。",
+        [Citation(chunk_id="c1", doc_id="d")],
+    )
+    client = make_client(services)
+
+    with client.stream("POST", "/v1/chat/stream", json={"query": "q", "history": []}) as response:
+        assert response.status_code == 200
+        events = [line for line in response.iter_lines() if line.startswith("data: ")]
+
+    assert llms["gen"].stream_calls == []  # cached answer: no LLM streaming
+    final = next(event for event in events if '"type": "answer"' in event)
+    assert '"answer": "缓存答案 [1]。"' in final
+    assert events[-1] == "data: [DONE]"
+
+
 # --- documents ---
 
 

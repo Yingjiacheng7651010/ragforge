@@ -132,6 +132,26 @@ async def test_executor_reports_missing_table() -> None:
     assert "table not found" in results["1"]
 
 
+async def test_executor_reports_unknown_tool() -> None:
+    executor = Executor(retriever=FakeRetriever())
+
+    results = await executor.execute([Step(id="1", tool="hack", query="x")])
+
+    assert "[unknown tool" in results["1"]
+
+
+async def test_planner_falls_back_when_all_steps_filtered() -> None:
+    llm = FakeLLM()
+    llm.enqueue_completion(
+        LLMResult(text='{"steps": [{"id": "1", "tool": "hack", "query": "x"}]}')
+    )
+    planner = Planner(llm)
+
+    steps = await planner.plan("q")
+
+    assert steps == [Step(id="1", tool="retrieve", query="q")]
+
+
 # --- reflector ---
 
 

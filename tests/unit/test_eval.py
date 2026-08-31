@@ -2,6 +2,7 @@
 
 import json
 import pathlib
+from types import SimpleNamespace
 
 import pytest
 
@@ -180,6 +181,71 @@ def test_parse_metrics() -> None:
 
     with pytest.raises(RAGForgeError):
         parse_metrics("bogus", 5)
+
+
+def test_build_retriever_offline_rejected() -> None:
+    from ragforge.eval import cli
+
+    with pytest.raises(RAGForgeError) as exc_info:
+        cli.build_retriever("offline", "chunks")
+    assert exc_info.value.code == "E_EVAL_RETRIEVER"
+
+
+def test_build_retriever_unknown_name_rejected() -> None:
+    from ragforge.eval import cli
+
+    with pytest.raises(RAGForgeError) as exc_info:
+        cli.build_retriever("bogus", "chunks")
+    assert exc_info.value.code == "E_EVAL_RETRIEVER"
+
+
+def test_build_retriever_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ragforge.eval import cli
+
+    monkeypatch.setattr(
+        "ragforge.eval.cli.get_settings",
+        lambda: SimpleNamespace(llm_api_key=SimpleNamespace(get_secret_value=lambda: "")),
+    )
+
+    with pytest.raises(RAGForgeError) as exc_info:
+        cli.build_retriever("dense", "chunks")
+    assert exc_info.value.code == "E_EVAL_LLM_MISSING"
+
+
+def test_build_retriever_dense_with_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ragforge.eval import cli
+    from ragforge.retrieval import DenseRetriever
+
+    monkeypatch.setattr(
+        "ragforge.eval.cli.get_settings",
+        lambda: SimpleNamespace(
+            llm_api_key=SimpleNamespace(get_secret_value=lambda: "sk-test"),
+            embedding_model="e",
+            embedding_dim=3,
+            llm_model="m",
+        ),
+    )
+    monkeypatch.setenv("ES_URL", "http://127.0.0.1:1")
+
+    retriever = cli.build_retriever("dense", "chunks")
+
+    assert isinstance(retriever, DenseRetriever)
+
+
+def test_cli_unknown_command_exits() -> None:
+    from ragforge.eval.cli import main
+
+    # argparse rejects unknown subcommands with SystemExit before run()
+    with pytest.raises(SystemExit):
+        main(["nonsense"])
+
+
+def test_main_help_exits_zero() -> None:
+    from ragforge.eval.cli import main
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--help"])
+    assert exc_info.value.code == 0
 
 
 def test_cli_offline_run_and_baseline_diff(tmp_path: pathlib.Path) -> None:

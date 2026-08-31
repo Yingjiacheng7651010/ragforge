@@ -83,5 +83,5 @@ disable_error_code = ["untyped-decorator"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "-ra"
+addopts = "-ra --cov=ragforge --cov-report=term-missing --cov-fail-under=85"
 pythonpath = ["."]

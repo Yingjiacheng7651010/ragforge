@@ -5,7 +5,8 @@ from collections.abc import AsyncIterator, Sequence
 
 from ragforge.core.embeddings import EmbeddingCache, EmbeddingProvider
 from ragforge.core.llm import BaseLLM, LLMResult, Message
-from ragforge.core.vector_store import Filter, SearchHit
+from ragforge.core.vector_store import Filter, SearchHit, VectorStore
+from ragforge.ingestion import Chunk
 from ragforge.retrieval import Retriever
 
 
@@ -93,3 +94,56 @@ class FakeRetriever(Retriever):
     ) -> list[SearchHit]:
         self.calls.append((query, top_k, filters))
         return list(self._queue.popleft()) if self._queue else []
+
+
+class InMemoryVectorStore(VectorStore):
+    """Minimal in-memory store for e2e tests (no external services)."""
+
+    def __init__(self, embedder: EmbeddingProvider) -> None:
+        super().__init__(embedder=embedder)
+        self._chunks: dict[str, Chunk] = {}
+
+    async def _upsert(
+        self,
+        chunks: Sequence[Chunk],
+        vectors: Sequence[Sequence[float]],
+    ) -> None:
+        for chunk in chunks:
+            self._chunks[chunk.chunk_id] = chunk
+
+    async def search(
+        self,
+        embedding: Sequence[float],
+        top_k: int,
+        filters: Filter | None = None,
+    ) -> list[SearchHit]:
+        hits = [
+            SearchHit(chunk_id=chunk.chunk_id, score=1.0, chunk=chunk)
+            for chunk in self._chunks.values()
+        ]
+        if filters is not None and filters.doc_id:
+            hits = [
+                hit
+                for hit in hits
+                if hit.chunk is not None and hit.chunk.doc_id == filters.doc_id
+            ]
+        return hits[:top_k]
+
+    async def search_text(
+        self,
+        text: str,
+        top_k: int,
+        filters: Filter | None = None,
+    ) -> list[SearchHit]:
+        hits = [
+            SearchHit(chunk_id=chunk.chunk_id, score=1.0, chunk=chunk)
+            for chunk in self._chunks.values()
+            if text in chunk.text
+        ]
+        return hits[:top_k]
+
+    async def delete(self, doc_id: str) -> None:
+        self._chunks = {key: chunk for key, chunk in self._chunks.items() if chunk.doc_id != doc_id}
+
+    async def close(self) -> None:
+        return None
