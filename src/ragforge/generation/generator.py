@@ -8,6 +8,7 @@ from ragforge.core.llm import BaseLLM, Message
 from ragforge.core.vector_store import SearchHit
 from ragforge.generation.base import Citation, GenerationResult
 from ragforge.generation.context import ContextAssembler
+from ragforge.observability import span_set, traced
 from ragforge.query.base import DEFAULT_PROMPTS, PromptStore, render
 
 _CITATION_RE = re.compile(r"\[(\d+)\]")
@@ -35,6 +36,7 @@ class Generator:
         self._max_context_tokens = max_context_tokens
         self._template = (prompts or DEFAULT_PROMPTS).load("generate")
 
+    @traced("rag.generate")
     async def generate(
         self,
         query: str,
@@ -55,24 +57,32 @@ class Generator:
                 )
             ]
             answer = "".join(chunks)
-            return GenerationResult(
+            result = GenerationResult(
                 answer=answer,
                 citations=self._resolve_citations(answer, citations),
                 latency_ms=(time.monotonic() - started) * 1000,
             )
+        else:
+            llm_result = await self._llm.complete(
+                [Message(role="user", content=prompt_text)],
+                temperature=0.0,
+            )
+            result = GenerationResult(
+                answer=llm_result.text,
+                citations=self._resolve_citations(llm_result.text, citations),
+                prompt_tokens=llm_result.prompt_tokens,
+                completion_tokens=llm_result.completion_tokens,
+                latency_ms=llm_result.latency_ms,
+                cost=llm_result.cost,
+            )
 
-        result = await self._llm.complete(
-            [Message(role="user", content=prompt_text)],
-            temperature=0.0,
-        )
-        return GenerationResult(
-            answer=result.text,
-            citations=self._resolve_citations(result.text, citations),
-            prompt_tokens=result.prompt_tokens,
-            completion_tokens=result.completion_tokens,
-            latency_ms=result.latency_ms,
+        span_set(
+            query=query,
+            tokens=result.completion_tokens,
             cost=result.cost,
+            citations=len(result.citations),
         )
+        return result
 
     def _resolve_citations(self, answer: str, citations: Sequence[Citation]) -> list[Citation]:
         """Keep only the citations the answer actually references, in appearance order."""

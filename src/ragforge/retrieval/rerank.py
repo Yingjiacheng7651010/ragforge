@@ -8,6 +8,7 @@ from typing import Any
 
 from ragforge.core.errors import RAGForgeError
 from ragforge.core.vector_store import SearchHit
+from ragforge.observability import span_set, traced
 
 
 class Reranker(ABC):
@@ -47,6 +48,7 @@ class BGEReranker(Reranker):
             ) from err
         return module.CrossEncoder(self._model_name, device=self._device)
 
+    @traced("rag.rerank")
     async def rerank(self, query: str, hits: Sequence[SearchHit]) -> list[SearchHit]:
         if not hits:
             return []
@@ -57,7 +59,9 @@ class BGEReranker(Reranker):
             key=lambda item: float(item[0]),
             reverse=True,
         )
-        return [
+        reordered = [
             SearchHit(chunk_id=hit.chunk_id, score=float(score), chunk=hit.chunk)
             for score, hit in scored
         ]
+        span_set(query=query, reranked=len(reordered))
+        return reordered

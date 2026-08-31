@@ -30,6 +30,7 @@ from ragforge.cache.base import (
 )
 from ragforge.core.embeddings import EmbeddingProvider
 from ragforge.generation import Citation
+from ragforge.observability import get_metrics, span_set, traced
 
 logger = structlog.get_logger(__name__)
 
@@ -54,10 +55,12 @@ class CacheService:
         self._ttl_seconds = ttl_seconds
         self._extra_sensitive = list(sensitive_patterns or [])
 
+    @traced("rag.cache.get")
     async def get(self, query: str) -> CachedAnswer | None:
         """Exact lookup first, then semantic matching; None when nothing hits."""
         raw = await self._redis.get(self._exact_key(query))
         if raw is not None:
+            get_metrics().record_cache("exact")
             return self._deserialize(as_str(raw), "exact")
 
         query_embedding = await self._embedder.embed_query(query)
@@ -77,7 +80,10 @@ class CacheService:
                 best_similarity = similarity
                 best_raw = as_str(raw)
         if best_raw is None:
+            get_metrics().record_cache("miss")
             return None
+        get_metrics().record_cache("semantic")
+        span_set(hit_type="semantic", similarity=best_similarity)
         return self._deserialize(best_raw, "semantic")
 
     async def set(self, query: str, answer: str, citations: Sequence[Citation]) -> None:

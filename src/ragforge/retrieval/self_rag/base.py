@@ -9,6 +9,7 @@ import structlog
 from ragforge.core.llm import BaseLLM, LLMError, Message
 from ragforge.core.llm.base import _extract_json_object
 from ragforge.ingestion import Chunk
+from ragforge.observability import span_set, traced
 from ragforge.query.base import DEFAULT_PROMPTS, PromptStore, render
 
 logger = structlog.get_logger(__name__)
@@ -62,6 +63,7 @@ class SelfRagEvaluator:
         self._llm = llm
         self._template = (prompts or DEFAULT_PROMPTS).load("self_rag")
 
+    @traced("rag.self_rag")
     async def evaluate(self, query: str, chunks: Sequence[Chunk]) -> SelfRagAssessment:
         try:
             prompt_text = render(self._template, query=query, chunks=_format_chunks(chunks))
@@ -77,6 +79,16 @@ class SelfRagEvaluator:
             )
             data = None
 
+        assessment = self._build_assessment(data, chunks)
+        span_set(query=query, verdict=assessment.verdict, chunk_count=len(chunks))
+        return assessment
+
+    def _build_assessment(
+        self,
+        data: dict[str, object] | None,
+        chunks: Sequence[Chunk],
+    ) -> SelfRagAssessment:
+        """Parse the LLM verdict JSON into an assessment (conservative defaults)."""
         if data is None:
             return SelfRagAssessment(verdict="insufficient", relevance=[False] * len(chunks))
 

@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 
 from ragforge.core.embeddings import EmbeddingProvider
 from ragforge.core.vector_store import Filter, SearchHit, VectorStore, rrf_fuse
+from ragforge.observability import span_set, traced
 
 
 class Retriever(ABC):
@@ -28,6 +29,7 @@ class DenseRetriever(Retriever):
         self._store = store
         self._embedder = embedder
 
+    @traced("rag.retrieve.dense")
     async def retrieve(
         self,
         query: str,
@@ -35,7 +37,9 @@ class DenseRetriever(Retriever):
         filters: Filter | None = None,
     ) -> list[SearchHit]:
         embedding = await self._embedder.embed_query(query)
-        return await self._store.search(embedding, top_k, filters)
+        hits = await self._store.search(embedding, top_k, filters)
+        span_set(query=query, top_k=top_k, scores=[hit.score for hit in hits])
+        return hits
 
 
 class SparseRetriever(Retriever):
@@ -44,13 +48,16 @@ class SparseRetriever(Retriever):
     def __init__(self, *, store: VectorStore) -> None:
         self._store = store
 
+    @traced("rag.retrieve.sparse")
     async def retrieve(
         self,
         query: str,
         top_k: int,
         filters: Filter | None = None,
     ) -> list[SearchHit]:
-        return await self._store.search_text(query, top_k, filters)
+        hits = await self._store.search_text(query, top_k, filters)
+        span_set(query=query, top_k=top_k, scores=[hit.score for hit in hits])
+        return hits
 
 
 class HybridRetriever(Retriever):
@@ -61,6 +68,7 @@ class HybridRetriever(Retriever):
         self._sparse = sparse
         self._rrf_k = rrf_k
 
+    @traced("rag.retrieve.hybrid")
     async def retrieve(
         self,
         query: str,
@@ -71,4 +79,6 @@ class HybridRetriever(Retriever):
             self._dense.retrieve(query, top_k, filters),
             self._sparse.retrieve(query, top_k, filters),
         )
-        return rrf_fuse([dense_hits, sparse_hits], k=self._rrf_k)
+        fused = rrf_fuse([dense_hits, sparse_hits], k=self._rrf_k)
+        span_set(query=query, top_k=top_k, scores=[hit.score for hit in fused])
+        return fused
