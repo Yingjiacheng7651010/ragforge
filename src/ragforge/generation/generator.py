@@ -2,7 +2,8 @@
 
 import re
 import time
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
+from typing import cast
 
 from ragforge.core.llm import BaseLLM, Message
 from ragforge.core.vector_store import SearchHit
@@ -45,36 +46,30 @@ class Generator:
         stream: bool = False,
     ) -> GenerationResult:
         """Generate an answer; ``stream`` collects tokens from the streaming API."""
+        if stream:
+            result: GenerationResult | None = None
+            async for kind, value in self.stream_answer(query, hits):
+                if kind == "result":
+                    result = cast(GenerationResult, value)
+            if result is None:
+                raise RuntimeError("stream ended without a result")
+            return result
+
         context, citations = self._assembler.assemble(query, hits, self._max_context_tokens)
         prompt_text = render(self._template, query=query, context=context)
 
-        started = time.monotonic()
-        if stream:
-            chunks = [
-                part
-                async for part in await self._llm.stream(
-                    [Message(role="user", content=prompt_text)]
-                )
-            ]
-            answer = "".join(chunks)
-            result = GenerationResult(
-                answer=answer,
-                citations=self._resolve_citations(answer, citations),
-                latency_ms=(time.monotonic() - started) * 1000,
-            )
-        else:
-            llm_result = await self._llm.complete(
-                [Message(role="user", content=prompt_text)],
-                temperature=0.0,
-            )
-            result = GenerationResult(
-                answer=llm_result.text,
-                citations=self._resolve_citations(llm_result.text, citations),
-                prompt_tokens=llm_result.prompt_tokens,
-                completion_tokens=llm_result.completion_tokens,
-                latency_ms=llm_result.latency_ms,
-                cost=llm_result.cost,
-            )
+        llm_result = await self._llm.complete(
+            [Message(role="user", content=prompt_text)],
+            temperature=0.0,
+        )
+        result = GenerationResult(
+            answer=llm_result.text,
+            citations=self._resolve_citations(llm_result.text, citations),
+            prompt_tokens=llm_result.prompt_tokens,
+            completion_tokens=llm_result.completion_tokens,
+            latency_ms=llm_result.latency_ms,
+            cost=llm_result.cost,
+        )
 
         span_set(
             query=query,
@@ -83,6 +78,33 @@ class Generator:
             citations=len(result.citations),
         )
         return result
+
+    @traced("rag.generate.stream")
+    async def stream_answer(
+        self,
+        query: str,
+        hits: Sequence[SearchHit],
+    ) -> AsyncIterator[tuple[str, str | GenerationResult]]:
+        """Yield ``("token", part)`` events, then a final ``("result", GenerationResult)``."""
+        context, citations = self._assembler.assemble(query, hits, self._max_context_tokens)
+        prompt_text = render(self._template, query=query, context=context)
+
+        started = time.monotonic()
+        parts: list[str] = []
+        async for part in await self._llm.stream(
+            [Message(role="user", content=prompt_text)]
+        ):
+            parts.append(part)
+            yield "token", part
+
+        answer = "".join(parts)
+        result = GenerationResult(
+            answer=answer,
+            citations=self._resolve_citations(answer, citations),
+            latency_ms=(time.monotonic() - started) * 1000,
+        )
+        span_set(query=query, tokens=result.completion_tokens, citations=len(result.citations))
+        yield "result", result
 
     def _resolve_citations(self, answer: str, citations: Sequence[Citation]) -> list[Citation]:
         """Keep only the citations the answer actually references, in appearance order."""

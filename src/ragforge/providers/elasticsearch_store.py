@@ -121,6 +121,10 @@ class ElasticsearchStore(VectorStore):
     async def close(self) -> None:
         await self._client.close()
 
+    async def ping(self) -> bool:
+        """True when the Elasticsearch endpoint answers."""
+        return bool(await self._client.ping())
+
     @staticmethod
     def _build_filter(filters: Filter | None) -> dict[str, object] | None:
         """Translate filters into ES term clauses (None means no filtering)."""

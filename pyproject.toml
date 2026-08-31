@@ -18,6 +18,7 @@ dependencies = [
     "pymilvus>=2.4",
     "pymupdf>=1.24",
     "python-docx>=1.1",
+    "python-multipart>=0.0.9",
     "redis>=5.2",
     "structlog>=24.4",
     "uvicorn>=0.34",
@@ -68,6 +69,16 @@ disable_error_code = ["no-untyped-call"]
 # pymilvus ships no type annotations.
 module = ["pymilvus"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# celery ships no type annotations.
+module = ["celery"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# the tasks module decorates functions with the untyped celery app
+module = ["ragforge.api.tasks"]
+disable_error_code = ["untyped-decorator"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
