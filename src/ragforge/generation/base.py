@@ -11,6 +11,7 @@ class Citation:
     page: int | None = None
     text: str = ""
     score: float = 0.0
+    doc_id: str | None = None
 
 
 @dataclass(frozen=True)

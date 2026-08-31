@@ -39,7 +39,13 @@ class ContextAssembler:
             f"[{index + 1}] {chunk.text}" for index, (chunk, _) in enumerate(selected)
         )
         citations = [
-            Citation(chunk_id=chunk.chunk_id, page=chunk.page, text=chunk.text, score=score)
+            Citation(
+                chunk_id=chunk.chunk_id,
+                page=chunk.page,
+                text=chunk.text,
+                score=score,
+                doc_id=chunk.doc_id,
+            )
             for chunk, score in selected
         ]
         return context, citations
