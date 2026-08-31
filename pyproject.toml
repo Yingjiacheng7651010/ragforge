@@ -4,16 +4,18 @@ version = "0.1.0"
 description = "Engineering-grade RAG framework: ingestion, retrieval, generation, eval and guardrails."
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi>=0.115",
-    "uvicorn>=0.34",
-    "pydantic>=2.10",
-    "pydantic-settings>=2.7",
-    "openai>=1.59",
-    "structlog>=24.4",
-    "redis>=5.2",
     "celery>=5.4",
+    "fastapi>=0.115",
+    "openai>=1.59",
     "opentelemetry-api>=1.30",
     "opentelemetry-sdk>=1.30",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "pymupdf>=1.24",
+    "python-docx>=1.1",
+    "redis>=5.2",
+    "structlog>=24.4",
+    "uvicorn>=0.34",
 ]
 
 [project.optional-dependencies]
@@ -45,6 +47,16 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 [tool.mypy]
 strict = true
 python_version = "3.11"
+
+[[tool.mypy.overrides]]
+# python-docx ships no type annotations.
+module = ["docx"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# PyMuPDF ships partial annotations; treat its API as untyped.
+module = ["pymupdf"]
+disable_error_code = ["no-untyped-call"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
