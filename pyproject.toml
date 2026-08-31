@@ -16,6 +16,9 @@ dependencies = [
     "opentelemetry-sdk>=1.30",
 ]
 
+[project.optional-dependencies]
+local = ["sentence-transformers>=3.0"]
+
 [dependency-groups]
 dev = [
     "pytest>=8.3",

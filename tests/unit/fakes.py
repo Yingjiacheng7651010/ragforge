@@ -3,6 +3,7 @@
 from collections import deque
 from collections.abc import AsyncIterator, Sequence
 
+from ragforge.core.embeddings import EmbeddingCache, EmbeddingProvider
 from ragforge.core.llm import BaseLLM, LLMResult, Message
 
 
@@ -51,3 +52,20 @@ class FakeLLM(BaseLLM):
                 yield chunk
 
         return gen()
+
+
+class FakeEmbedding(EmbeddingProvider):
+    """Scripted embedding provider: fixed-width vectors, records every batch."""
+
+    def __init__(self, dimensions: int = 3, *, cache: EmbeddingCache | None = None) -> None:
+        super().__init__(cache=cache)
+        self._dimensions = dimensions
+        self.batches: list[list[str]] = []
+
+    @property
+    def dimensions(self) -> int:
+        return self._dimensions
+
+    async def _embed_raw(self, texts: list[str]) -> list[list[float]]:
+        self.batches.append(texts)
+        return [[0.1, 0.2, 0.3] for _ in texts]
