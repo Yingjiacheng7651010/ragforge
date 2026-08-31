@@ -1,0 +1,28 @@
+# Pre-commit hooks for ragforge.
+# Install with: uv run pre-commit install
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.5
+    hooks:
+      - id: ruff
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.3.1
+    hooks:
+      - id: mypy
+        # Check the whole src/ tree (not just staged files) with the
+        # same strict config from pyproject.toml.
+        pass_filenames: false
+        args: ["src"]
+        additional_dependencies:
+          - fastapi>=0.115
+          - uvicorn>=0.34
+          - pydantic>=2.10
+          - pydantic-settings>=2.7
+          - openai>=1.59
+          - structlog>=24.4
+          - redis>=5.2
+          - celery>=5.4
+          - opentelemetry-api>=1.30
+          - opentelemetry-sdk>=1.30
