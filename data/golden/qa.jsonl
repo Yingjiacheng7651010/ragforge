@@ -1,0 +1,3 @@
+{"id": "qa_001", "question": "RAG 检索的第一步是什么？", "gold_answer": "先从知识库检索相关片段。", "gold_chunks": ["chunk-rag-1"], "doc_id": "docs/rag-intro.md", "difficulty": "easy", "retrieved_chunk_ids": ["chunk-rag-1", "chunk-rag-2"]}
+{"id": "qa_002", "question": "语义缓存命中需要满足什么条件？", "gold_answer": "查询向量与缓存查询的余弦相似度超过阈值。", "gold_chunks": ["chunk-cache-3"], "doc_id": "docs/cache.md", "difficulty": "medium", "retrieved_chunk_ids": ["chunk-rag-1", "chunk-cache-3"]}
+{"id": "qa_003", "question": "重排器如何改善检索质量？", "gold_answer": "对召回结果做交叉编码精排，提升前列相关性。", "gold_chunks": ["chunk-rerank-2"], "doc_id": "docs/rerank.md", "difficulty": "hard", "retrieved_chunk_ids": ["chunk-rag-1"]}
