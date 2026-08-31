@@ -1,5 +1,13 @@
-"""Ingestion subsystem: document parsing and loading."""
+"""Ingestion subsystem: document parsing, chunking and loading."""
 
+from ragforge.ingestion.chunking import (
+    Chunk,
+    Chunker,
+    ParentChildChunker,
+    SemanticChunker,
+    StructureChunker,
+    TokenCounter,
+)
 from ragforge.ingestion.parsers import (
     DEFAULT_REGISTRY,
     HtmlParser,
@@ -14,14 +22,20 @@ from ragforge.ingestion.parsers import (
 )
 
 __all__ = [
+    "Chunk",
+    "Chunker",
     "DEFAULT_REGISTRY",
     "HtmlParser",
     "MarkdownParser",
-    "PDFParser",
+    "ParentChildChunker",
     "ParsedDocument",
     "Parser",
     "ParserRegistry",
+    "PDFParser",
     "Section",
+    "SemanticChunker",
+    "StructureChunker",
     "Table",
+    "TokenCounter",
     "WordParser",
 ]
