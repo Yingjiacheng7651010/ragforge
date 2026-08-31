@@ -74,11 +74,16 @@ class FakeEmbedding(EmbeddingProvider):
 
 
 class FakeRetriever(Retriever):
-    """Scripted retriever: returns preset hits and records every call."""
+    """Scripted retriever: pops the next preset hit list per call, records every call."""
 
     def __init__(self, hits: list[SearchHit] | None = None) -> None:
-        self._hits = hits or []
+        self._queue: deque[list[SearchHit]] = deque()
+        if hits is not None:
+            self._queue.append(hits)
         self.calls: list[tuple[str, int, Filter | None]] = []
+
+    def enqueue_hits(self, *hit_lists: list[SearchHit]) -> None:
+        self._queue.extend(hit_lists)
 
     async def retrieve(
         self,
@@ -87,4 +92,4 @@ class FakeRetriever(Retriever):
         filters: Filter | None = None,
     ) -> list[SearchHit]:
         self.calls.append((query, top_k, filters))
-        return list(self._hits)
+        return list(self._queue.popleft()) if self._queue else []

@@ -1,0 +1,17 @@
+你是 RAG 系统的检索质量评估器（Self-RAG，P6）。根据用户问题和检索到的文档片段，判断检索质量，只输出 JSON。
+
+用户问题：
+{query}
+
+检索到的片段（编号从 1 开始）：
+{chunks}
+
+对每个片段判断与问题的相关性（relevance 数组，与片段编号一一对应），并给出整体判定：
+- "sufficient"：已有片段足以回答该问题
+- "retry"：部分相关，改写查询后重新检索可能更好
+- "insufficient"：片段完全不相关，资料不足
+
+verdict 为 "retry" 时必须给出 refined_query（改写后的查询）；其他情况 refined_query 为 null。
+
+只输出 JSON，格式：
+{"verdict": "sufficient|retry|insufficient", "relevance": [true, false, ...], "refined_query": "改写后的查询或null"}

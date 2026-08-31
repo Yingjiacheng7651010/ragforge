@@ -9,9 +9,15 @@ from ragforge.retrieval.retrievers import (
     Retriever,
     SparseRetriever,
 )
+from ragforge.retrieval.self_rag import (
+    CorrectiveRagRetriever,
+    SelfRagAssessment,
+    SelfRagEvaluator,
+)
 
 __all__ = [
     "BGEReranker",
+    "CorrectiveRagRetriever",
     "DenseRetriever",
     "Filter",
     "HybridRetriever",
@@ -19,6 +25,8 @@ __all__ = [
     "RetrievalPipeline",
     "Retriever",
     "SearchHit",
+    "SelfRagAssessment",
+    "SelfRagEvaluator",
     "SparseRetriever",
     "rrf_fuse",
 ]
