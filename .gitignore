@@ -17,3 +17,6 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+
+# Internal research/design docs (not part of the shipped project)
+docs/
